@@ -1,5 +1,4 @@
 package com.example.jetprofile
-
 import android.R.attr.value
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -38,15 +37,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.Role.Companion.Image
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.constraintlayout.compose.ConstrainedLayoutReference
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.core.os.HandlerCompat
 import com.example.jetprofile.ui.theme.JetProfileTheme
@@ -66,18 +65,11 @@ import java.util.Date
 class MainActivity : ComponentActivity() {
     private val directoryPath =
         Environment.getExternalStorageDirectory().path + "/hatori_picture"
-    private lateinit var bitmap: Bitmap
-
-    companion object {
-        private const val REQUEST_IMAGE_TAKE = 2
-    }
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         displayDialog()
-
         setContent {
             JetProfileTheme {
                 Surface(
@@ -125,15 +117,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-//    private fun closeKeyboard(context: Context, view: View) {
-//        val inputMethodManager =
-//            getSystemService(Activity.INPUT_METHOD_SERVICE) as InputMethodManager
-//        inputMethodManager.hideSoftInputFromWindow(
-//            view.windowToken,
-//            InputMethodManager.HIDE_NOT_ALWAYS
-//        )
-//    }
-
     @SuppressLint("SimpleDateFormat")
     @OptIn(DelicateCoroutinesApi::class)
     @RequiresApi(Build.VERSION_CODES.O)
@@ -150,13 +133,13 @@ class MainActivity : ComponentActivity() {
                 urlConnection.requestMethod = "GET"
                 // リダイレクトを自動で許可しない設定
                 urlConnection.instanceFollowRedirects = false
-                bitmap = BitmapFactory.decodeStream(urlConnection.inputStream)
+                val bitmap = BitmapFactory.decodeStream(urlConnection.inputStream)
                 // 別スレッド内での処理を管理し実行する
                 HandlerCompat.createAsync(mainLooper).post {
                     Toast.makeText(applicationContext, "画像をダウンロードしました", Toast.LENGTH_LONG).show()
-//                    binding.progressbar.isInvisible = true
+                    binding.progressbar.isInvisible = true
                     // 画像をImageViewに表示
-//                    binding.image.setImageBitmap(bitmap)
+                    binding.image.setImageBitmap(bitmap)
                 }
                 // データ保存のフォーマット
                 val dateFormat = SimpleDateFormat("yyyyMMdd_HH:mm:ss")
@@ -175,7 +158,7 @@ class MainActivity : ComponentActivity() {
                         "画像をダウンロード出来ませんでした",
                         Toast.LENGTH_LONG
                     ).show()
-//                    binding.progressbar.isInvisible = true
+                    binding.progressbar.isInvisible = true
                 }
                 e.printStackTrace()
             }
@@ -187,20 +170,20 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (it.resultCode == Activity.RESULT_OK) {
                 // 遷移先の画面から画像データを取得して表示
-//                binding.image.setImageURI(it.data?.data)
+                binding.image.setImageURI(it.data?.data)
                 Toast.makeText(applicationContext, "画像を取得しました", Toast.LENGTH_SHORT).show()
             }
         }
 
     @SuppressLint("IntentReset")
     @RequiresApi(Build.VERSION_CODES.O)
-    @OptIn(ExperimentalMaterial3Api::class)
+    @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
     @Preview(showBackground = true)
     @Composable
     fun DisplayScreen() {
         ConstraintLayout(modifier = Modifier.fillMaxWidth()) {
             var isInvisible by remember { mutableStateOf(true) }
-            var (
+            val (
                 toGallery,
                 text,
                 editText,
@@ -256,9 +239,10 @@ class MainActivity : ComponentActivity() {
                     Text("http://")
                 }
             )
+            val keyboardController = LocalSoftwareKeyboardController.current
             Button(
                 onClick = {
-//                    closeKeyboard(context = this, binding.startDownload)
+                    keyboardController?.hide()
                     val urlString = editText.toString()
                     isInvisible = false
                     downloadImage(urlString)
@@ -279,7 +263,7 @@ class MainActivity : ComponentActivity() {
                     }) {
                 Text(text = "ダウンロード開始")
             }
-            var image by remember { mutableStateOf(bitmap) }
+            var image by remember { mutableStateOf(Bitmap()) }
             Image(
                 bitmap = image.asImageBitmap(),
                 contentDescription = null,
