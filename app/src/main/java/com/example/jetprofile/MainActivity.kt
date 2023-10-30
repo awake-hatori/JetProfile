@@ -1,4 +1,5 @@
 package com.example.jetprofile
+
 import android.R.attr.value
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -43,7 +44,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.semantics.Role.Companion.Image
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
@@ -63,8 +63,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 class MainActivity : ComponentActivity() {
-    private val directoryPath =
-        Environment.getExternalStorageDirectory().path + "/hatori_picture"
+    private val directoryPath = Environment.getExternalStorageDirectory().path + "/hatori_picture"
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -73,8 +72,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             JetProfileTheme {
                 Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
+                    modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background
                 ) {
                     DisplayScreen()
                 }
@@ -121,48 +119,7 @@ class MainActivity : ComponentActivity() {
     @OptIn(DelicateCoroutinesApi::class)
     @RequiresApi(Build.VERSION_CODES.O)
     private fun downloadImage(urlString: String) {
-        GlobalScope.launch {
-            try {
-                val url = URL(urlString)
-                val urlConnection =
-                    withContext(Dispatchers.IO) {
-                        url.openConnection()
-                    } as HttpURLConnection
-                urlConnection.readTimeout = 10000
-                urlConnection.connectTimeout = 20000
-                urlConnection.requestMethod = "GET"
-                // リダイレクトを自動で許可しない設定
-                urlConnection.instanceFollowRedirects = false
-                val bitmap = BitmapFactory.decodeStream(urlConnection.inputStream)
-                // 別スレッド内での処理を管理し実行する
-                HandlerCompat.createAsync(mainLooper).post {
-                    Toast.makeText(applicationContext, "画像をダウンロードしました", Toast.LENGTH_LONG).show()
-                    binding.progressbar.isInvisible = true
-                    // 画像をImageViewに表示
-                    binding.image.setImageBitmap(bitmap)
-                }
-                // データ保存のフォーマット
-                val dateFormat = SimpleDateFormat("yyyyMMdd_HH:mm:ss")
-                val currentDate: String = dateFormat.format(Date())
-                // JPEG形式で保存
-                val file = File(directoryPath, "$currentDate.jpeg")
-                withContext(Dispatchers.IO) {
-                    FileOutputStream(file).use { stream ->
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
-                    }
-                }
-            } catch (e: IOException) {
-                HandlerCompat.createAsync(mainLooper).post {
-                    Toast.makeText(
-                        applicationContext,
-                        "画像をダウンロード出来ませんでした",
-                        Toast.LENGTH_LONG
-                    ).show()
-                    binding.progressbar.isInvisible = true
-                }
-                e.printStackTrace()
-            }
-        }
+
     }
 
     // ギャラリーから画像受け取り
@@ -170,21 +127,32 @@ class MainActivity : ComponentActivity() {
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
             if (it.resultCode == Activity.RESULT_OK) {
                 // 遷移先の画面から画像データを取得して表示
-                binding.image.setImageURI(it.data?.data)
+//                binding.image.setImageURI(it.data?.data)
                 Toast.makeText(applicationContext, "画像を取得しました", Toast.LENGTH_SHORT).show()
             }
         }
 
-    @SuppressLint("IntentReset")
+    @SuppressLint("IntentReset", "CoroutineCreationDuringComposition", "SimpleDateFormat")
     @RequiresApi(Build.VERSION_CODES.O)
-    @OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
+    @OptIn(
+        ExperimentalMaterial3Api::class,
+        ExperimentalComposeUiApi::class,
+        DelicateCoroutinesApi::class
+    )
     @Preview(showBackground = true)
     @Composable
     fun DisplayScreen() {
         ConstraintLayout(modifier = Modifier.fillMaxWidth()) {
             var isInvisible by remember { mutableStateOf(true) }
-            val (
-                toGallery,
+            var canDownload by remember { mutableStateOf(false) }
+            var inputValue by remember { mutableStateOf("") }
+            var image by remember {mutableStateOf(
+                    BitmapFactory.decodeResource(
+                        getResources(), R.drawable.transparent_image
+                    )
+                )
+            }
+            var (toGallery,
                 text,
                 editText,
                 startDownload,
@@ -192,12 +160,57 @@ class MainActivity : ComponentActivity() {
                 displayImage,
                 clear,
                 downloadedImage) = createRefs()
-            Button(
-                onClick = {
-                    val intent = Intent(Intent.ACTION_PICK)
-                    intent.type = "image/*"
-                    receivePicture.launch(intent)
-                },
+
+            if (canDownload) {
+                val urlString = inputValue
+                downloadImage(urlString)
+                GlobalScope.launch {
+                    try {
+                        val url = URL(urlString)
+                        val urlConnection = withContext(Dispatchers.IO) {
+                            url.openConnection()
+                        } as HttpURLConnection
+                        urlConnection.readTimeout = 10000
+                        urlConnection.connectTimeout = 20000
+                        urlConnection.requestMethod = "GET"
+                        // リダイレクトを自動で許可しない設定
+                        urlConnection.instanceFollowRedirects = false
+                        val bitmap = BitmapFactory.decodeStream(urlConnection.inputStream)
+                        // 別スレッド内での処理を管理し実行する
+                        HandlerCompat.createAsync(mainLooper).post {
+                            Toast.makeText(applicationContext, "画像をダウンロードしました", Toast.LENGTH_LONG).show()
+                            isInvisible = true
+                            canDownload=false
+                            // 画像をImageViewに表示
+                            image = bitmap
+                        }
+                        // データ保存のフォーマット
+                        val dateFormat = SimpleDateFormat("yyyyMMdd_HH:mm:ss")
+                        val currentDate: String = dateFormat.format(Date())
+                        // JPEG形式で保存
+                        val file = File(directoryPath, "$currentDate.jpeg")
+                        withContext(Dispatchers.IO) {
+                            FileOutputStream(file).use { stream ->
+                                bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream)
+                            }
+                        }
+                    } catch (e: IOException) {
+                        HandlerCompat.createAsync(mainLooper).post {
+                            Toast.makeText(
+                                applicationContext, "画像をダウンロード出来ませんでした", Toast.LENGTH_LONG
+                            ).show()
+                            isInvisible = true
+                            canDownload=false
+                        }
+                        e.printStackTrace()
+                    }
+                }
+            }
+            Button(onClick = {
+                val intent = Intent(Intent.ACTION_PICK)
+                intent.type = "image/*"
+                receivePicture.launch(intent)
+            },
                 enabled = true,
                 border = BorderStroke(1.dp, Color.Black),
                 colors = ButtonDefaults.textButtonColors(
@@ -219,34 +232,28 @@ class MainActivity : ComponentActivity() {
                     .constrainAs(text) {
                         top.linkTo(toGallery.bottom)
                         start.linkTo(parent.start)
-                    },
-                text = "URLを入力して下さい"
+                    }, text = "URLを入力して下さい"
             )
-            var inputValue by remember { mutableStateOf("") }
-            TextField(
-                modifier = Modifier
-                    .width(215.dp)
-                    .padding(10.dp)
-                    .constrainAs(editText) {
-                        top.linkTo(text.bottom)
-                        start.linkTo(parent.start)
-                        end.linkTo(startDownload.start)
-                    },
+            TextField(modifier = Modifier
+                .width(215.dp)
+                .padding(10.dp)
+                .constrainAs(editText) {
+                    top.linkTo(text.bottom)
+                    start.linkTo(parent.start)
+                    end.linkTo(startDownload.start)
+                },
                 value = inputValue,
                 onValueChange = { inputValue = it },
                 singleLine = false,
                 label = {
                     Text("http://")
-                }
-            )
+                })
             val keyboardController = LocalSoftwareKeyboardController.current
-            Button(
-                onClick = {
-                    keyboardController?.hide()
-                    val urlString = editText.toString()
-                    isInvisible = false
-                    downloadImage(urlString)
-                },
+            Button(onClick = {
+                keyboardController?.hide()
+                isInvisible = false
+                canDownload = true
+            },
                 enabled = true,
                 border = BorderStroke(1.dp, Color.Black),
                 colors = ButtonDefaults.textButtonColors(
@@ -263,9 +270,7 @@ class MainActivity : ComponentActivity() {
                     }) {
                 Text(text = "ダウンロード開始")
             }
-            var image by remember { mutableStateOf(Bitmap()) }
-            Image(
-                bitmap = image.asImageBitmap(),
+            Image(bitmap = image.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -278,20 +283,17 @@ class MainActivity : ComponentActivity() {
                         end.linkTo(parent.end)
                     })
             if (!isInvisible) {
-                CircularProgressIndicator(
-                    modifier = Modifier
-                        .constrainAs(progressBar) {
-                            top.linkTo(displayImage.top)
-                            bottom.linkTo(displayImage.bottom)
-                            start.linkTo(displayImage.start)
-                            end.linkTo(displayImage.end)
-                        })
+                CircularProgressIndicator(modifier = Modifier.constrainAs(progressBar) {
+                    top.linkTo(displayImage.top)
+                    bottom.linkTo(displayImage.bottom)
+                    start.linkTo(displayImage.start)
+                    end.linkTo(displayImage.end)
+                })
             }
-            Button(
-                onClick = {
-                    inputValue = ""
-                    image = BitmapFactory.decodeResource(getResources(), R.drawable.chardraw)
-                },
+            Button(onClick = {
+                inputValue = ""
+                image = BitmapFactory.decodeResource(getResources(), R.drawable.transparent_image)
+            },
                 enabled = true,
                 border = BorderStroke(1.dp, Color.Black),
                 colors = ButtonDefaults.textButtonColors(
@@ -308,15 +310,14 @@ class MainActivity : ComponentActivity() {
                     }) {
                 Text(text = "Clear")
             }
-            Button(
-                onClick = {
-                    val test = Uri.fromFile(File(directoryPath))
-                    val uri = Uri.parse(test.toString())
-                    Log.d("Log", "$uri")
-                    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT, uri)
-                    intent.type = "image/*"
-                    receivePicture.launch(intent)
-                },
+            Button(onClick = {
+                val test = Uri.fromFile(File(directoryPath))
+                val uri = Uri.parse(test.toString())
+                Log.d("Log", "$uri")
+                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT, uri)
+                intent.type = "image/*"
+                receivePicture.launch(intent)
+            },
                 enabled = true,
                 border = BorderStroke(1.dp, Color.Black),
                 colors = ButtonDefaults.textButtonColors(
