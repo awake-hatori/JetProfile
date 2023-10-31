@@ -124,7 +124,7 @@ class MainActivity : ComponentActivity() {
         ConstraintLayout(modifier = Modifier.fillMaxWidth()) {
             var canDownload by remember { mutableStateOf(false) }
             var inputValue by remember { mutableStateOf("") }
-            var isInvisible by remember { mutableStateOf(true) }
+            var isHiddenProgressbar by remember { mutableStateOf(true) }
             var imageBitmap by remember {
                 mutableStateOf(
                     BitmapFactory.decodeResource(
@@ -133,20 +133,19 @@ class MainActivity : ComponentActivity() {
                 )
             }
             val keyboardController = LocalSoftwareKeyboardController.current
-            val (toGallery,
+            val (toGalleryButton,
                 text,
                 editText,
-                startDownload,
+                startDownloadButton,
                 progressBar,
                 displayImage,
-                clear,
-                downloadedImage) = createRefs()
+                clearButton,
+                downloadedImageButton) = createRefs()
             // ダウンロード処理
             if (canDownload) {
-                val urlString = inputValue
                 GlobalScope.launch {
                     try {
-                        val url = URL(urlString)
+                        val url = URL(inputValue)
                         val urlConnection = withContext(Dispatchers.IO) {
                             url.openConnection()
                         } as HttpURLConnection
@@ -160,9 +159,8 @@ class MainActivity : ComponentActivity() {
                         HandlerCompat.createAsync(mainLooper).post {
                             Toast.makeText(applicationContext, "画像をダウンロードしました", Toast.LENGTH_LONG)
                                 .show()
-                            isInvisible = true
+                            isHiddenProgressbar = true
                             canDownload = false
-                            // 画像をImageViewに表示
                             imageBitmap = bitmap
                         }
                         // データ保存のフォーマット
@@ -180,7 +178,7 @@ class MainActivity : ComponentActivity() {
                             Toast.makeText(
                                 applicationContext, "画像をダウンロード出来ませんでした", Toast.LENGTH_LONG
                             ).show()
-                            isInvisible = true
+                            isHiddenProgressbar = true
                             canDownload = false
                         }
                         e.printStackTrace()
@@ -205,7 +203,7 @@ class MainActivity : ComponentActivity() {
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier
                     .padding(10.dp)
-                    .constrainAs(toGallery) {
+                    .constrainAs(toGalleryButton) {
                         top.linkTo(parent.top)
                         start.linkTo(parent.start)
                     }) {
@@ -215,7 +213,7 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier
                     .padding(10.dp)
                     .constrainAs(text) {
-                        top.linkTo(toGallery.bottom)
+                        top.linkTo(toGalleryButton.bottom)
                         start.linkTo(parent.start)
                     },
                 text = "URLを入力して下さい",
@@ -227,7 +225,7 @@ class MainActivity : ComponentActivity() {
                     .constrainAs(editText) {
                         top.linkTo(text.bottom)
                         start.linkTo(parent.start)
-                        end.linkTo(startDownload.start)
+                        end.linkTo(startDownloadButton.start)
                     },
                 value = inputValue,
                 onValueChange = { inputValue = it },
@@ -240,7 +238,7 @@ class MainActivity : ComponentActivity() {
             Button(
                 onClick = {
                     keyboardController?.hide()
-                    isInvisible = false
+                    isHiddenProgressbar = false
                     canDownload = true
                 },
                 enabled = true,
@@ -252,7 +250,7 @@ class MainActivity : ComponentActivity() {
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier
                     .padding(10.dp)
-                    .constrainAs(startDownload) {
+                    .constrainAs(startDownloadButton) {
                         top.linkTo(editText.top)
                         bottom.linkTo(editText.bottom)
                         end.linkTo(parent.end)
@@ -269,11 +267,11 @@ class MainActivity : ComponentActivity() {
                     .padding(10.dp)
                     .constrainAs(displayImage) {
                         top.linkTo(editText.bottom)
-                        bottom.linkTo(clear.top)
+                        bottom.linkTo(clearButton.top)
                         start.linkTo(parent.start)
                         end.linkTo(parent.end)
                     })
-            if (!isInvisible) {
+            if (!isHiddenProgressbar) {
                 CircularProgressIndicator(modifier = Modifier.constrainAs(progressBar) {
                     top.linkTo(displayImage.top)
                     bottom.linkTo(displayImage.bottom)
@@ -297,10 +295,10 @@ class MainActivity : ComponentActivity() {
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier
                     .padding(10.dp)
-                    .constrainAs(clear) {
+                    .constrainAs(clearButton) {
                         bottom.linkTo(parent.bottom)
                         start.linkTo(parent.start)
-                        end.linkTo(downloadedImage.start)
+                        end.linkTo(downloadedImageButton.start)
                     }) {
                 Text(text = "Clear")
             }
@@ -315,9 +313,9 @@ class MainActivity : ComponentActivity() {
                 shape = MaterialTheme.shapes.small,
                 modifier = Modifier
                     .padding(10.dp)
-                    .constrainAs(downloadedImage) {
+                    .constrainAs(downloadedImageButton) {
                         bottom.linkTo(parent.bottom)
-                        start.linkTo(clear.end)
+                        start.linkTo(clearButton.end)
                         end.linkTo(parent.end)
                     }) {
                 Text(text = "ダウンロードした画像")
