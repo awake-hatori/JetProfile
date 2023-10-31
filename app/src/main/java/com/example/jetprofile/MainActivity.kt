@@ -2,18 +2,20 @@ package com.example.jetprofile
 
 import android.R.attr.value
 import android.annotation.SuppressLint
-import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
@@ -21,10 +23,13 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -44,7 +49,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.core.os.HandlerCompat
@@ -122,16 +126,6 @@ class MainActivity : ComponentActivity() {
 
     }
 
-    // ギャラリーから画像受け取り
-    private val receivePicture =
-        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            if (it.resultCode == Activity.RESULT_OK) {
-                // 遷移先の画面から画像データを取得して表示
-//                binding.image.setImageURI(it.data?.data)
-                Toast.makeText(applicationContext, "画像を取得しました", Toast.LENGTH_SHORT).show()
-            }
-        }
-
     @SuppressLint("IntentReset", "CoroutineCreationDuringComposition", "SimpleDateFormat")
     @RequiresApi(Build.VERSION_CODES.O)
     @OptIn(
@@ -139,14 +133,14 @@ class MainActivity : ComponentActivity() {
         ExperimentalComposeUiApi::class,
         DelicateCoroutinesApi::class
     )
-    @Preview(showBackground = true)
     @Composable
     fun DisplayScreen() {
         ConstraintLayout(modifier = Modifier.fillMaxWidth()) {
             var isInvisible by remember { mutableStateOf(true) }
             var canDownload by remember { mutableStateOf(false) }
             var inputValue by remember { mutableStateOf("") }
-            var image by remember {mutableStateOf(
+            var imageBitmap by remember {
+                mutableStateOf(
                     BitmapFactory.decodeResource(
                         getResources(), R.drawable.transparent_image
                     )
@@ -178,11 +172,12 @@ class MainActivity : ComponentActivity() {
                         val bitmap = BitmapFactory.decodeStream(urlConnection.inputStream)
                         // 別スレッド内での処理を管理し実行する
                         HandlerCompat.createAsync(mainLooper).post {
-                            Toast.makeText(applicationContext, "画像をダウンロードしました", Toast.LENGTH_LONG).show()
+                            Toast.makeText(applicationContext, "画像をダウンロードしました", Toast.LENGTH_LONG)
+                                .show()
                             isInvisible = true
-                            canDownload=false
+                            canDownload = false
                             // 画像をImageViewに表示
-                            image = bitmap
+                            imageBitmap = bitmap
                         }
                         // データ保存のフォーマット
                         val dateFormat = SimpleDateFormat("yyyyMMdd_HH:mm:ss")
@@ -200,16 +195,20 @@ class MainActivity : ComponentActivity() {
                                 applicationContext, "画像をダウンロード出来ませんでした", Toast.LENGTH_LONG
                             ).show()
                             isInvisible = true
-                            canDownload=false
+                            canDownload = false
                         }
                         e.printStackTrace()
                     }
                 }
             }
+            val launcher =
+                rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri ->
+                    if (uri == null) return@rememberLauncherForActivityResult
+                    imageBitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
+                }
+
             Button(onClick = {
-                val intent = Intent(Intent.ACTION_PICK)
-                intent.type = "image/*"
-                receivePicture.launch(intent)
+                launcher.launch("image/*")
             },
                 enabled = true,
                 border = BorderStroke(1.dp, Color.Black),
@@ -232,7 +231,8 @@ class MainActivity : ComponentActivity() {
                     .constrainAs(text) {
                         top.linkTo(toGallery.bottom)
                         start.linkTo(parent.start)
-                    }, text = "URLを入力して下さい"
+                    },
+                text = "URLを入力して下さい",
             )
             TextField(modifier = Modifier
                 .width(215.dp)
@@ -247,7 +247,9 @@ class MainActivity : ComponentActivity() {
                 singleLine = false,
                 label = {
                     Text("http://")
-                })
+                },
+                maxLines = 3
+            )
             val keyboardController = LocalSoftwareKeyboardController.current
             Button(onClick = {
                 keyboardController?.hide()
@@ -270,12 +272,13 @@ class MainActivity : ComponentActivity() {
                     }) {
                 Text(text = "ダウンロード開始")
             }
-            Image(bitmap = image.asImageBitmap(),
+            Image(bitmap = imageBitmap.asImageBitmap(),
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
+                contentScale = ContentScale.Fit,
                 modifier = Modifier
+                    .fillMaxWidth(1.0f)
+                    .fillMaxHeight(0.5f)
                     .padding(10.dp)
-                    .border(1.dp, Color.Black)
                     .constrainAs(displayImage) {
                         top.linkTo(editText.bottom)
                         bottom.linkTo(clear.top)
@@ -292,7 +295,8 @@ class MainActivity : ComponentActivity() {
             }
             Button(onClick = {
                 inputValue = ""
-                image = BitmapFactory.decodeResource(getResources(), R.drawable.transparent_image)
+                imageBitmap =
+                    BitmapFactory.decodeResource(getResources(), R.drawable.transparent_image)
             },
                 enabled = true,
                 border = BorderStroke(1.dp, Color.Black),
@@ -311,12 +315,7 @@ class MainActivity : ComponentActivity() {
                 Text(text = "Clear")
             }
             Button(onClick = {
-                val test = Uri.fromFile(File(directoryPath))
-                val uri = Uri.parse(test.toString())
-                Log.d("Log", "$uri")
-                val intent = Intent(Intent.ACTION_OPEN_DOCUMENT, uri)
-                intent.type = "image/*"
-                receivePicture.launch(intent)
+                launcher.launch("image/*")
             },
                 enabled = true,
                 border = BorderStroke(1.dp, Color.Black),
