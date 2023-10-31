@@ -3,16 +3,12 @@ package com.example.jetprofile
 import android.R.attr.value
 import android.annotation.SuppressLint
 import android.app.AlertDialog
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.ImageDecoder
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -21,15 +17,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -119,13 +112,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @SuppressLint("SimpleDateFormat")
-    @OptIn(DelicateCoroutinesApi::class)
-    @RequiresApi(Build.VERSION_CODES.O)
-    private fun downloadImage(urlString: String) {
-
-    }
-
     @SuppressLint("IntentReset", "CoroutineCreationDuringComposition", "SimpleDateFormat")
     @RequiresApi(Build.VERSION_CODES.O)
     @OptIn(
@@ -136,17 +122,18 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun DisplayScreen() {
         ConstraintLayout(modifier = Modifier.fillMaxWidth()) {
-            var isInvisible by remember { mutableStateOf(true) }
             var canDownload by remember { mutableStateOf(false) }
             var inputValue by remember { mutableStateOf("") }
+            var isInvisible by remember { mutableStateOf(true) }
             var imageBitmap by remember {
                 mutableStateOf(
                     BitmapFactory.decodeResource(
-                        getResources(), R.drawable.transparent_image
+                        resources, R.drawable.transparent_image
                     )
                 )
             }
-            var (toGallery,
+            val keyboardController = LocalSoftwareKeyboardController.current
+            val (toGallery,
                 text,
                 editText,
                 startDownload,
@@ -154,10 +141,9 @@ class MainActivity : ComponentActivity() {
                 displayImage,
                 clear,
                 downloadedImage) = createRefs()
-
+            // ダウンロード処理
             if (canDownload) {
                 val urlString = inputValue
-                downloadImage(urlString)
                 GlobalScope.launch {
                     try {
                         val url = URL(urlString)
@@ -201,15 +187,15 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            // 画像をプレビュー
             val launcher =
                 rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) { uri ->
                     if (uri == null) return@rememberLauncherForActivityResult
                     imageBitmap = MediaStore.Images.Media.getBitmap(contentResolver, uri)
                 }
-
-            Button(onClick = {
-                launcher.launch("image/*")
-            },
+            // UI表示
+            Button(
+                onClick = { launcher.launch("image/*") },
                 enabled = true,
                 border = BorderStroke(1.dp, Color.Black),
                 colors = ButtonDefaults.textButtonColors(
@@ -234,14 +220,15 @@ class MainActivity : ComponentActivity() {
                     },
                 text = "URLを入力して下さい",
             )
-            TextField(modifier = Modifier
-                .width(215.dp)
-                .padding(10.dp)
-                .constrainAs(editText) {
-                    top.linkTo(text.bottom)
-                    start.linkTo(parent.start)
-                    end.linkTo(startDownload.start)
-                },
+            TextField(
+                modifier = Modifier
+                    .width(215.dp)
+                    .padding(10.dp)
+                    .constrainAs(editText) {
+                        top.linkTo(text.bottom)
+                        start.linkTo(parent.start)
+                        end.linkTo(startDownload.start)
+                    },
                 value = inputValue,
                 onValueChange = { inputValue = it },
                 singleLine = false,
@@ -250,12 +237,12 @@ class MainActivity : ComponentActivity() {
                 },
                 maxLines = 3
             )
-            val keyboardController = LocalSoftwareKeyboardController.current
-            Button(onClick = {
-                keyboardController?.hide()
-                isInvisible = false
-                canDownload = true
-            },
+            Button(
+                onClick = {
+                    keyboardController?.hide()
+                    isInvisible = false
+                    canDownload = true
+                },
                 enabled = true,
                 border = BorderStroke(1.dp, Color.Black),
                 colors = ButtonDefaults.textButtonColors(
@@ -272,7 +259,8 @@ class MainActivity : ComponentActivity() {
                     }) {
                 Text(text = "ダウンロード開始")
             }
-            Image(bitmap = imageBitmap.asImageBitmap(),
+            Image(
+                bitmap = imageBitmap.asImageBitmap(),
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
@@ -293,11 +281,13 @@ class MainActivity : ComponentActivity() {
                     end.linkTo(displayImage.end)
                 })
             }
-            Button(onClick = {
-                inputValue = ""
-                imageBitmap =
-                    BitmapFactory.decodeResource(getResources(), R.drawable.transparent_image)
-            },
+            Button(
+                onClick = {
+                    inputValue = ""
+                    imageBitmap = BitmapFactory.decodeResource(
+                        resources, R.drawable.transparent_image
+                    )
+                },
                 enabled = true,
                 border = BorderStroke(1.dp, Color.Black),
                 colors = ButtonDefaults.textButtonColors(
@@ -314,9 +304,8 @@ class MainActivity : ComponentActivity() {
                     }) {
                 Text(text = "Clear")
             }
-            Button(onClick = {
-                launcher.launch("image/*")
-            },
+            Button(
+                onClick = { launcher.launch("image/*") },
                 enabled = true,
                 border = BorderStroke(1.dp, Color.Black),
                 colors = ButtonDefaults.textButtonColors(
